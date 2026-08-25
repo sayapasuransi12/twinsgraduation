@@ -1,0 +1,51 @@
+{
+  "summary": "Round 4 testing of (1) booking deletion (table row trash + detail 'Hapus') and (2) photo selection by filename/label. Found and fixed a BUILD-BREAKING JSX syntax error in BookingDetail.jsx (missing </Dialog>) that made the entire frontend fail to compile. After the fix, all Round-4 frontend flows pass. Backend: created /app/backend/tests/test_round4.py (15 new tests); full suite 87/88 pass. One real backend bug (500 instead of 404) and two integrity/RBAC-UI gaps found. bookings/payments/notifications collections left EMPTY as requested.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/bookings/{booking_id}/photos", "issue": "Non-existent booking_id returns 500 Internal Server Error. add_photos() never checks the booking exists: update_one matches 0 docs, then `b = await db.bookings.find_one(...)` returns None and `b.get('photos')` raises AttributeError. Must return 404 'Booking tidak ditemukan' (same guard as add_payment).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "DELETE /api/bookings/{booking_id}", "issue": "Deletes the booking + payments but NOT its notifications. Verified: after deleting test bookings, 30 orphaned notifications remained in db.notifications with booking_id pointing to deleted bookings — they still render in the Notifikasi page and link to a 404 booking. Add `await db.notifications.delete_many({'booking_id': booking_id})`."},
+      {"endpoint": "DELETE /api/bookings/{id}/photos/{photo_id}", "issue": "Returns 200 {ok:true} even for a non-existent booking/photo (no 404). Inconsistent with other endpoints."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BookingDetail.jsx", "issue": "FIXED BY TESTER: missing closing </Dialog> tag (invoice preview Dialog opened at L359 was never closed; the new AlertDialog was inserted before it). Caused 'SyntaxError: Unterminated JSX contents (419:10)' -> webpack compile failure -> ENTIRE app showed the CRA error overlay and no route rendered. Verify the fix is kept.", "selector": "N/A (build error)", "priority": "CRITICAL"},
+      {"component": "Bookings.jsx", "issue": "Row delete trash icon and 'Booking Baru' button are rendered for the photographer role without any role gate. Photographer clicks trash -> AlertDialog -> DELETE returns 403 and only an 'Akses ditolak' toast appears. Should be wrapped in a canManage check like BookingDetail does.", "selector": "[data-testid=\"booking-delete-{invoice}\"], [data-testid=\"new-booking-button\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bookings (Pemesanan) filters", "issues": ["Date range filters use native browser date inputs (type=\"date\", showing mm/dd/yyyy US format) instead of the shadcn Calendar/Popover used elsewhere — inconsistent with the Bahasa Indonesia UI", "Bookings table overflows horizontally at 1920px; the 'Sisa' column / trash column sit at the extreme right edge with almost no right padding"]},
+      {"screen": "Booking detail", "issues": ["'Tanggal'/'Waktu' edit fields also use native date/time pickers (12/23/2026, 11:00 AM) — locale mismatch with Indonesian UI"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_round4.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add 404 guard for a missing booking in POST /api/bookings/{id}/photos (currently 500)",
+    "Delete related notifications in DELETE /api/bookings/{id} (orphans currently remain)",
+    "Gate the row trash icon + 'Booking Baru' button in Bookings.jsx behind an owner/admin role check",
+    "Keep the </Dialog> fix in BookingDetail.jsx; add a lint/build check before handing off (a JSX syntax error broke the whole app)",
+    "Optional: replace native date/time inputs with shadcn Calendar + id-ID locale for consistency"
+  ],
+  "critical_code_review_comments": [
+    "add_photos() in /app/backend/bookings.py mutates then reads without existence check -> NoneType AttributeError; mirror the pattern in add_payment().",
+    "delete_booking() cascades to payments only; notifications (and any future related collections) should be cascaded too.",
+    "Frontend RBAC is enforced inconsistently: BookingDetail uses canManage, Bookings.jsx does not. Extract a shared canManage hook.",
+    "BookingDetail.jsx is 422 lines with the invoice preview dialog, photo gallery, payments and delete dialog all inline — split into subcomponents before it grows past 700 lines."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/BookingDetail.jsx (added missing </Dialog> closing tag)",
+    "/app/backend/tests/test_round4.py (new)"
+  ],
+  "success_rate": {"backend": "98% (87/88 pytest)", "frontend": "100% of Round-4 flows after the build fix"},
+  "seed_data_creation": "Created and deleted TEST_ bookings via API + UI (TEST_UI Klien, TEST_UI Foto, TEST_Fotografer Cek, TEST_Publik UI, TEST_R4 *). Ran /app/backend/tests/cleanup_test_data.py and purged orphaned notifications. FINAL STATE VERIFIED: bookings=0, payments=0, notifications=0, users=3, settings=2.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "/app/memory/test_credentials.md present and valid: owner sayapasuransi@gmail.com/TwinsOwner2026!, admin admin@twins.id/Admin2026!, photographer fotografer@twins.id/Foto2026! — all logged in successfully via UI and API.",
+  "context_for_next_testing_agent": "Verified PASSING (do not retest unless changed): bookings empty state 'Tidak ada data.'; create booking via admin dialog; row trash -> AlertDialog cancel keeps row / confirm deletes row + cascades payments; detail 'Hapus' -> AlertDialog -> redirect to /admin/bookings + GET returns 404; DELETE as photographer 403, anon 401/403, unknown id 404; POST /photos label-vs-URL split (url='' + label for filenames, derived label for URLs); admin grid renders font-mono label tiles + <img> for URL photos; portal label tiles toggle + counter, manual-photo-input/button adds pre-selected tile, submit-selection-button -> submit-confirm-ok -> locked (manual add & toggles return 400, submit controls hidden); admin detail shows 'Sudah dikirim klien' + counter 2/5; public booking form at / end-to-end (invoice + portal link shown); auth playbook items (httpOnly cookies, $2b$ bcrypt, 5-fail lockout, explicit CORS origins with credentials) covered by tests/test_auth.py. Run backend tests with `cd /app/backend && python -m pytest tests -q` (pytest.ini already has xdist args; do NOT pass -n/-p flags). ALWAYS re-run tests/cleanup_test_data.py + purge orphaned notifications afterwards so the user's DB stays empty.",
+  "rca_of_the_issue": "Frontend total outage RCA: in BookingDetail.jsx the new delete AlertDialog was inserted between </DialogContent> and the (now missing) </Dialog>, leaving the invoice Dialog element unterminated. Babel failed to parse the module, webpack emitted 2 errors and CRA served the error overlay for every route, so nothing was testable until the closing tag was restored. Backend 500 RCA: POST /bookings/{id}/photos performs $push then re-reads the booking; for an unknown id find_one returns None and .get() raises AttributeError -> unhandled 500. Orphan notification RCA: delete_booking cascades only to db.payments."
+}

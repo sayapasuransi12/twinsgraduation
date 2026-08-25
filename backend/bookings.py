@@ -314,17 +314,42 @@ class PhotosAdd(BaseModel):
 
 @router.post("/bookings/{booking_id}/photos")
 async def add_photos(booking_id: str, body: PhotosAdd, user: dict = Depends(require_roles("owner", "admin"))):
-    photos = [{"id": new_id(), "url": u.strip(), "selected": False, "note": ""} for u in body.urls if u.strip()]
+    photos = []
+    for u in body.urls:
+        u = u.strip()
+        if not u:
+            continue
+        if u.startswith("http"):
+            photos.append({"id": new_id(), "url": u, "label": u.split("/")[-1].split("?")[0][:40],
+                           "selected": False, "note": ""})
+        else:
+            photos.append({"id": new_id(), "url": "", "label": u, "selected": False, "note": ""})
     if not photos:
-        raise HTTPException(400, "Tidak ada URL foto")
-    await db.bookings.update_one({"id": booking_id}, {"$push": {"photos": {"$each": photos}}})
+        raise HTTPException(400, "Tidak ada foto yang ditambahkan")
+    res = await db.bookings.update_one({"id": booking_id}, {"$push": {"photos": {"$each": photos}}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Booking tidak ditemukan")
     b = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     return b.get("photos", [])
 
 
 @router.delete("/bookings/{booking_id}/photos/{photo_id}")
 async def delete_photo(booking_id: str, photo_id: str, user: dict = Depends(require_roles("owner", "admin"))):
-    await db.bookings.update_one({"id": booking_id}, {"$pull": {"photos": {"id": photo_id}}})
+    res = await db.bookings.update_one({"id": booking_id}, {"$pull": {"photos": {"id": photo_id}}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Booking tidak ditemukan")
+    if res.modified_count == 0:
+        raise HTTPException(404, "Foto tidak ditemukan")
+    return {"ok": True}
+
+
+@router.delete("/bookings/{booking_id}")
+async def delete_booking(booking_id: str, user: dict = Depends(require_roles("owner", "admin"))):
+    res = await db.bookings.delete_one({"id": booking_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Booking tidak ditemukan")
+    await db.payments.delete_many({"booking_id": booking_id})
+    await db.notifications.delete_many({"booking_id": booking_id})
     return {"ok": True}
 
 
@@ -393,6 +418,23 @@ async def portal_view(token: str):
 class PhotoSelect(BaseModel):
     selected: bool
     note: Optional[str] = None
+
+
+class ManualPhoto(BaseModel):
+    label: str
+
+
+@router.post("/portal/{token}/photos/manual")
+async def portal_add_manual_photo(token: str, body: ManualPhoto):
+    b = await portal_booking(token)
+    if b.get("selection_submitted"):
+        raise HTTPException(400, "Seleksi foto sudah dikirim final dan tidak dapat diubah.")
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(400, "Nomor foto tidak boleh kosong")
+    photo = {"id": new_id(), "url": "", "label": label, "selected": True, "note": ""}
+    await db.bookings.update_one({"id": b["id"]}, {"$push": {"photos": photo}})
+    return photo
 
 
 @router.post("/portal/{token}/photos/{photo_id}")

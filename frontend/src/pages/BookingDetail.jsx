@@ -13,6 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function Section({ title, children, testid, action }) {
@@ -36,6 +40,7 @@ export default function BookingDetail() {
   const [driveInput, setDriveInput] = useState("");
   const [photoUrls, setPhotoUrls] = useState("");
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [notes, setNotes] = useState("");
 
   const load = useCallback(() => {
@@ -124,6 +129,12 @@ export default function BookingDetail() {
           {canManage && (
             <Button size="sm" className="rounded-sm" data-testid="send-invoice-button" onClick={sendInvoice}>
               <Send className="w-4 h-4 mr-2" /> Kirim ke Klien
+            </Button>
+          )}
+          {canManage && (
+            <Button variant="outline" size="sm" className="rounded-sm border-destructive text-destructive hover:bg-destructive/10"
+              data-testid="delete-booking-button" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="w-4 h-4 mr-2" /> Hapus
             </Button>
           )}
         </div>
@@ -262,9 +273,9 @@ export default function BookingDetail() {
                 )}
               </div>
               <div>
-                <Label className="text-xs">Tambah Foto (satu URL per baris)</Label>
+                <Label className="text-xs">Tambah Foto — URL foto ATAU nama file dari Google Drive (mis. DSC06265.JPG), satu per baris</Label>
                 <Textarea rows={2} className="mt-1.5 rounded-sm font-mono text-xs" data-testid="photo-urls-input"
-                  value={photoUrls} onChange={(e) => setPhotoUrls(e.target.value)} placeholder="https://..." />
+                  value={photoUrls} onChange={(e) => setPhotoUrls(e.target.value)} placeholder={"DSC06265.JPG\nDSC06266.JPG\nhttps://..."} />
                 <Button variant="outline" size="sm" className="mt-2 rounded-sm" data-testid="add-photos-button" onClick={addPhotos}>
                   <Plus className="w-4 h-4 mr-2" /> Tambah Foto
                 </Button>
@@ -277,7 +288,13 @@ export default function BookingDetail() {
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2" data-testid="admin-photo-grid">
             {(b.photos || []).map((p) => (
               <div key={p.id} className={`relative border rounded-sm overflow-hidden ${p.selected ? "border-gold ring-1 ring-gold" : "border-border"}`} data-testid={`admin-photo-${p.id}`}>
-                <img src={p.url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                {p.url ? (
+                  <img src={p.url} alt="" className="w-full h-24 object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-24 grid place-items-center bg-muted px-1">
+                    <span className="font-mono text-xs text-center break-all">{p.label}</span>
+                  </div>
+                )}
                 {p.selected && <span className="absolute top-1 left-1 bg-gold text-black text-[9px] px-1.5 py-0.5 rounded-sm font-medium uppercase">Dipilih</span>}
                 {canManage && (
                   <button className="absolute top-1 right-1 bg-black/60 rounded-sm p-0.5" data-testid={`photo-delete-${p.id}`}
@@ -288,7 +305,7 @@ export default function BookingDetail() {
                 {p.note && <p className="text-[10px] p-1.5 text-muted-foreground truncate" title={p.note}>{p.note}</p>}
               </div>
             ))}
-            {(b.photos || []).length === 0 && <p className="text-xs text-muted-foreground col-span-full">Belum ada foto. Tambahkan URL foto atau link Drive di atas.</p>}
+            {(b.photos || []).length === 0 && <p className="text-xs text-muted-foreground col-span-full">Belum ada foto. Tambahkan URL foto atau daftar nama file (mis. DSC06265.JPG) dari folder Google Drive di atas.</p>}
           </div>
         </Section>
 
@@ -377,6 +394,30 @@ export default function BookingDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent data-testid="delete-booking-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Hapus Booking Ini?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Booking {b.client_name} ({b.invoice_number}) beserta riwayat pembayarannya akan dihapus permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-booking-cancel">Batal</AlertDialogCancel>
+            <AlertDialogAction data-testid="delete-booking-confirm"
+              onClick={async () => {
+                try {
+                  await api.delete(`/bookings/${b.id}`);
+                  toast.success("Booking dihapus");
+                  window.location.href = "/admin/bookings";
+                } catch (e) { toast.error(formatApiError(e)); }
+              }}>
+              Ya, Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

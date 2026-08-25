@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, formatApiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { fmtIDR, fmtDate, PAYMENT_METHODS, BOOKING_STATUS, PAYMENT_STATUS } from "@/lib/format";
 import { BookingBadge, PaymentBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -21,11 +26,14 @@ const EMPTY = {
 };
 
 export default function Bookings() {
+  const { user } = useAuth();
+  const canManage = ["owner", "admin"].includes(user?.role);
   const [rows, setRows] = useState([]);
   const [photographers, setPhotographers] = useState([]);
   const [packages, setPackages] = useState([]);
   const [filters, setFilters] = useState({ search: "", status: "all", payment_status: "all", photographer_id: "all", date_from: "", date_to: "" });
   const [open, setOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -68,9 +76,11 @@ export default function Bookings() {
           <h1 className="text-3xl md:text-4xl font-display font-semibold tracking-tight">Pemesanan</h1>
           <p className="mt-1 text-sm text-muted-foreground">{rows.length} booking ditemukan.</p>
         </div>
-        <Button className="rounded-sm" data-testid="new-booking-button" onClick={() => setOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Booking Baru
-        </Button>
+        {canManage && (
+          <Button className="rounded-sm" data-testid="new-booking-button" onClick={() => setOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Booking Baru
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3" data-testid="booking-filters">
@@ -112,7 +122,7 @@ export default function Bookings() {
             <TableRow>
               <TableHead>Invoice</TableHead><TableHead>Klien</TableHead><TableHead>Jadwal</TableHead>
               <TableHead>Paket</TableHead><TableHead>Fotografer</TableHead><TableHead>Status</TableHead>
-              <TableHead>Pembayaran</TableHead><TableHead className="text-right">Sisa</TableHead>
+              <TableHead>Pembayaran</TableHead><TableHead className="text-right">Sisa</TableHead><TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -130,14 +140,47 @@ export default function Bookings() {
                 <TableCell><BookingBadge status={b.status} /></TableCell>
                 <TableCell><PaymentBadge status={b.payment_status} /></TableCell>
                 <TableCell className="text-right font-mono text-sm">{fmtIDR(b.remaining)}</TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {canManage && (
+                    <Button variant="ghost" size="icon" data-testid={`booking-delete-${b.invoice_number}`}
+                      onClick={() => setDeleteTarget(b)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-10">Tidak ada data.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-10">Tidak ada data.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent data-testid="delete-booking-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Hapus Booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Booking {deleteTarget?.client_name} ({deleteTarget?.invoice_number}) beserta riwayat pembayarannya akan dihapus permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-booking-cancel">Batal</AlertDialogCancel>
+            <AlertDialogAction data-testid="delete-booking-confirm"
+              onClick={async () => {
+                try {
+                  await api.delete(`/bookings/${deleteTarget.id}`);
+                  toast.success("Booking dihapus");
+                  setDeleteTarget(null);
+                  load();
+                } catch (e) { toast.error(formatApiError(e)); }
+              }}>
+              Ya, Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="new-booking-dialog">

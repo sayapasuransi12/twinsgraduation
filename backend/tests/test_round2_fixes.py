@@ -43,9 +43,12 @@ class TestPhotographerScope:
 class TestPortalPhotosFlow:
     def test_add_photo_and_portal_visible(self):
         owner = login_session("Owner (Pemilik Studio)")
-        bookings = owner.get(f"{API}/bookings", timeout=30).json()
-        target = next((b for b in bookings if b.get("invoice_number") == "INV-2026-0008"), None)
-        assert target is not None, "seeded INV-2026-0008 not found"
+        created = owner.post(f"{API}/bookings", json={
+            "client_name": "TEST_R2 Portal", "phone": "08990000001", "package": "Paket Gold",
+            "booking_date": "2030-01-01", "booking_time": "09:00", "location": "Studio",
+            "total_price": 4000000, "dp_amount": 2000000}, timeout=30)
+        assert created.status_code in (200, 201), created.text
+        target = created.json()
         bid = target["id"]
         r = owner.post(f"{API}/bookings/{bid}/photos",
                        json={"urls": ["https://picsum.photos/seed/TEST_r2/600/400"]}, timeout=30)

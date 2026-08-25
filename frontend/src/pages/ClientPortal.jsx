@@ -25,6 +25,7 @@ export default function ClientPortal() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [notes, setNotes] = useState({});
+  const [manualLabel, setManualLabel] = useState("");
 
   const load = useCallback(() => {
     api.get(`/portal/${token}`)
@@ -50,6 +51,16 @@ export default function ClientPortal() {
     try {
       await api.post(`/portal/${token}/photos/${photo.id}`, { selected: photo.selected, note: notes[photo.id] || "" });
       toast.success("Catatan tersimpan");
+    } catch (e) { toast.error(formatApiError(e)); }
+  };
+
+  const addManual = async () => {
+    if (!manualLabel.trim()) return;
+    try {
+      await api.post(`/portal/${token}/photos/manual`, { label: manualLabel.trim() });
+      toast.success(`${manualLabel.trim()} ditambahkan ke pilihan`);
+      setManualLabel("");
+      load();
     } catch (e) { toast.error(formatApiError(e)); }
   };
 
@@ -199,6 +210,23 @@ export default function ClientPortal() {
               </p>
             )}
 
+            {!locked && (
+              <div className="mt-6 border border-border rounded-md bg-card p-4 flex flex-col sm:flex-row gap-3 sm:items-end" data-testid="manual-photo-add">
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-[0.15em]">Tambah nomor foto manual</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Lihat nama file di galeri Google Drive di atas (mis. DSC06265), lalu masukkan di sini.
+                  </p>
+                  <Input className="mt-2 rounded-sm font-mono" placeholder="DSC06265" data-testid="manual-photo-input"
+                    value={manualLabel} onChange={(e) => setManualLabel(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addManual())} />
+                </div>
+                <Button variant="outline" className="rounded-sm shrink-0" data-testid="manual-photo-button" onClick={addManual}>
+                  <Check className="w-4 h-4 mr-2" /> Pilih Foto Ini
+                </Button>
+              </div>
+            )}
+
             <div className="mt-6 columns-2 md:columns-3 lg:columns-4 gap-3 space-y-3">
               {photos.map((p) => (
                 <div key={p.id} className="break-inside-avoid animate-fade-up" data-testid={`portal-photo-${p.id}`}>
@@ -207,7 +235,13 @@ export default function ClientPortal() {
                     className={`relative block w-full overflow-hidden rounded-sm border-2 transition-colors duration-200 ${
                       p.selected ? "border-gold" : "border-transparent hover:border-muted-foreground/40"
                     }`}>
-                    <img src={p.url} alt="" className={`w-full object-cover transition-[filter] duration-200 ${p.selected ? "" : "hover:brightness-110"}`} loading="lazy" />
+                    {p.url ? (
+                      <img src={p.url} alt="" className={`w-full object-cover transition-[filter] duration-200 ${p.selected ? "" : "hover:brightness-110"}`} loading="lazy" />
+                    ) : (
+                      <div className="aspect-square grid place-items-center bg-muted px-2">
+                        <span className="font-mono text-sm text-center break-all">{p.label}</span>
+                      </div>
+                    )}
                     {p.selected && (
                       <span className="absolute top-2 right-2 w-6 h-6 bg-gold text-black grid place-items-center rounded-sm">
                         <Check className="w-4 h-4" />

@@ -40,9 +40,17 @@ Web app all-in-one untuk bisnis fotografi (studio/wisuda): booking form publik, 
 - Menu Pengaturan (owner): edit info bisnis (nama, tagline, telepon, email, alamat), CRUD paket foto (nama, harga, kuota foto, deskripsi), opsi form booking (slot waktu, metode pembayaran) — tersimpan di koleksi settings, langsung dipakai landing page, form booking, invoice PDF, dan portal klien
 - Endpoint: GET /api/public/site (publik), GET/PATCH /api/settings, PUT /api/settings/packages (owner)
 
+## Implemented (2026-06, lanjutan 2)
+- Hapus booking (owner/admin): tombol di daftar pemesanan & halaman detail dengan konfirmasi AlertDialog — menghapus booking + riwayat pembayarannya (DELETE /api/bookings/{id})
+- Seleksi foto via nomor/nama file: admin paste daftar nama file dari Google Drive (mis. DSC06265.JPG, satu per baris) di detail booking; tile nomor foto tampil di admin & portal klien; klien juga bisa tambah nomor foto manual (POST /api/portal/{token}/photos/manual)
+- Data demo dibersihkan (bookings/payments/notifications dikosongkan); auto-seed data demo dinonaktifkan (hanya jalan bila SEED_DEMO=1); users & settings tetap ter-seed
+
+- Hapus booking: cascade juga ke notifications; guard 404 untuk tambah/hapus foto pada booking yang tidak ada; tombol hapus/buat booking disembunyikan untuk role fotografer (RBAC UI konsisten)
+
 ## Status Pengujian (2026-06)
-- Backend: 73/73 pytest lulus (auth, booking, pembayaran, invoice, schedule, portal, finance, analytics, notifikasi, users, settings)
-- Frontend: seluruh flow Playwright lulus (3 ronde); validasi pengaturan: harga/kuota paket wajib angka > 0, nama studio tidak boleh kosong
+- Backend: 95/95 pytest lulus (auth, booking, pembayaran, invoice, schedule, portal, finance, analytics, notifikasi, users, settings, hapus booking, foto label)
+- Frontend: seluruh flow Playwright lulus (5 ronde); RBAC UI konsisten (fotografer tidak melihat tombol kelola)
+- DB produksi bersih: bookings=0, payments=0, notifications=0 (siap data asli); users & settings tetap
 - Mock: kirim invoice via WhatsApp/email (log notifikasi), embed Google Drive
 
 ## Backlog

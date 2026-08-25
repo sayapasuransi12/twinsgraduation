@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone, timedelta, date
 from database import db
@@ -55,6 +56,9 @@ async def seed_all():
             "id": new_id(), "email": "fotografer@twins.id", "name": "Rama Wijaya",
             "role": "photographer", "password_hash": hash_password("Foto2026!"), "created_at": now_iso(),
         })
+
+    if not os.environ.get("SEED_DEMO"):
+        return
 
     if await db.bookings.count_documents({}) > 0:
         return

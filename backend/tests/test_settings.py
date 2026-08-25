@@ -126,15 +126,19 @@ class TestBusinessInfo:
 
     def test_invoice_pdf_uses_updated_business(self, owner):
         owner.patch(f"{API}/settings", json={"business": {"name": "TEST_Studio PDF"}}, timeout=30)
-        bookings = owner.get(f"{API}/bookings", timeout=30).json()
-        assert len(bookings) > 0, "no bookings to test invoice"
-        bid = bookings[0]["id"]
+        created = owner.post(f"{API}/bookings", json={
+            "client_name": "TEST_Invoice PDF", "phone": "08990000002", "package": "Paket Gold",
+            "booking_date": "2030-02-01", "booking_time": "09:00", "location": "Studio",
+            "total_price": 4000000, "dp_amount": 2000000}, timeout=30)
+        assert created.status_code in (200, 201), created.text
+        bid = created.json()["id"]
         r = owner.get(f"{API}/bookings/{bid}/invoice.pdf", timeout=60)
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("application/pdf")
         assert len(r.content) > 500
         det = owner.get(f"{API}/bookings/{bid}/invoice", timeout=30).json()
         assert det["business"]["name"] == "TEST_Studio PDF"
+        owner.delete(f"{API}/bookings/{bid}", timeout=30)
 
 
 # --- form options ---

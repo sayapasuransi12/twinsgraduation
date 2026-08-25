@@ -1,0 +1,37 @@
+{
+  "summary": "Round 5 verification-only testing. All four Round-4 fixes verified as FIXED plus the BookingDetail.jsx </Dialog> build fix is intact. Added /app/backend/tests/test_round5_fixes.py (7 tests). Full backend suite: 95/95 pass. UI: photographer role no longer sees trash icons or 'Booking Baru'; owner sees both; booking detail page + invoice preview dialog open/close cleanly with no console/render errors. DB left EMPTY (bookings=0, payments=0, notifications=0).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Bookings (Pemesanan)", "issues": ["Still open from Round 4 (not part of Round-5 scope): date range filters use native browser date inputs showing mm/dd/yyyy instead of shadcn Calendar with id-ID locale; table overflows horizontally at 1920px with the right-most columns clipped at the viewport edge (visible in photographer screenshot)"]},
+      {"screen": "Booking detail", "issues": ["Still open from Round 4: 'Tanggal' (12/31/2026) and 'Waktu' fields use native pickers - locale mismatch with the Bahasa Indonesia UI"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_round5_fixes.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "add_photos() now guards with res.matched_count == 0 -> 404 before re-reading; correct. Minor: the 400 'Tidak ada foto yang ditambahkan' check runs before the existence check, so an empty payload on an unknown booking returns 400 not 404 (acceptable, documented in test).",
+    "delete_booking() cascade now covers payments + notifications. If other collections later reference booking_id (e.g. schedule/audit), extract a single cascade helper so it cannot drift again.",
+    "delete_photo() using matched_count/modified_count to split 'Booking tidak ditemukan' vs 'Foto tidak ditemukan' is correct; note modified_count==0 would also fire for a concurrent double-delete - fine semantically (404).",
+    "Bookings.jsx canManage = ['owner','admin'].includes(user?.role) duplicates the same expression in BookingDetail.jsx - extract a useCanManage() hook (still open from Round 4).",
+    "BookingDetail.jsx remains ~420 lines with dialogs inline; split before it grows further."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_round5_fixes.py (new)"
+  ],
+  "success_rate": {"backend": "100% (95/95 pytest)", "frontend": "100% of Round-5 verification flows"},
+  "seed_data_creation": "Created TEST_R5 bookings via API (4 in pytest + 1 'TEST_R5 UI Klien' for the detail-page UI check). All removed afterwards via DELETE /api/bookings/{id} and tests/cleanup_test_data.py. FINAL DB STATE VERIFIED: bookings=0, payments=0, notifications=0 (no orphans), users=3, settings=2, expenses=5 (pre-existing, untouched).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "/app/memory/test_credentials.md valid - owner/admin/photographer logins all succeeded via API and UI.",
+  "context_for_next_testing_agent": "Round 5 verified FIXED: (1) POST /api/bookings/{unknown}/photos -> 404 'Booking tidak ditemukan' (also verified happy path still splits filename-label vs URL and persists); (2) DELETE /api/bookings/{id} cascades notifications - created booking, POST /invoice/send + /payments generated notifications, after delete zero notifications with that booking_id remain and GET booking -> 404; (3) DELETE /bookings/{unknown}/photos/{unknown} -> 404 'Booking tidak ditemukan', existing booking + unknown photo -> 404 'Foto tidak ditemukan', real photo -> 200 then repeat delete -> 404; (4) UI photographer (fotografer@twins.id) at /admin/bookings: new-booking-button count 0, booking-delete-* count 0; owner: 1 and 8 respectively. BookingDetail renders (summary-total Rp 2.000.000), preview-invoice-button opens dialog, Escape closes it, page intact, no error elements. Note the correct booking create payload keys are client_name/phone/package/booking_date/booking_time/total_price/dp_amount/payment_method/photo_quota (not client_phone/date/time). Invoice send endpoint is POST /api/bookings/{id}/invoice/send. Run backend tests with `cd /app/backend && python -m pytest tests -q` (pytest.ini has xdist args; do NOT pass -n). Always re-run tests/cleanup_test_data.py afterwards.",
+  "rca_of_the_issue": "N/A - all Round-4 reported defects confirmed resolved at the code level (bookings.py L329-331 matched_count guard, L338-342 delete_photo 404s, L352 notifications cascade) and at runtime via API + UI tests. Only the pre-existing Round-4 design nits (native date pickers, table horizontal overflow) remain open."
+}
