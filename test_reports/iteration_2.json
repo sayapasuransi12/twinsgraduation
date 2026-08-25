@@ -1,0 +1,45 @@
+{
+  "summary": "Round-2 verification of the 6 reported fixes for the Twins Graduation photography app. Backend: full pytest suite (48 existing + 4 new round-2 tests) = 52/52 passed. Added /app/backend/tests/test_round2_fixes.py covering email-keyed brute-force lockout (exact 429 on 6th attempt via PUBLIC URL + owner login unaffected), photographer role scope (403 on /api/dashboard/stats, 200 on /api/bookings), and owner add-photo -> portal visibility (no _id leak). Frontend (Playwright, public URL): FIX1 photographer login lands on /admin/jadwal, /admin and /admin/notifikasi both redirect to /admin/jadwal with the schedule rendered (no blank page, 0 console errors). FIX3 at 390px stat-revenue (Rp 17.500.000) and stat-outstanding (Rp 32.000.000) fit inside the cards (scrollWidth==clientWidth, no child overflow, document scrollWidth 390). FIX4 client portal INV-2026-0008: drive-invalid-note fallback shown for a non-embeddable link (no iframe rendered), photo toggle -> counter 1/10, submit-confirm-dialog opens, Cancel aborts without submitting, OK submits (selection-submitted-note appears, submit button removed, state persists after reload). FIX5 nav testids unique: nav-bookings=1 on desktop and on mobile; mobile drawer adds nav-bookings-mobile=1 (no strict-mode duplicates). FIX6 nb-package is a shadcn Select with 4 packages from /api/public/packages and auto-fills nb-total (Paket Silver -> 2500000). Regression: owner dashboard loads with stats; booking detail payment add updated Terbayar Rp 0 -> Rp 250.000 and Sisa Rp 2.000.000 -> Rp 1.750.000 with toast. Test data cleaned via cleanup_test_data.py; INV-2026-0008 restored (photos=[], selection_submitted=false, drive_link='', editing_status=menunggu_seleksi).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/bookings", "issue": "Still no pagination (to_list(5000)); will degrade as data grows (carried over from round 1, low priority)."},
+      {"endpoint": "POST /api/auth/login", "issue": "Lockout is now email-only, which fixes the ingress problem but allows an attacker to lock a real user out of their own account by spamming their email (account-lockout DoS). Consider combining email + X-Forwarded-For and/or a short backoff instead of a hard 15-min block."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Booking Baru dialog (/admin/bookings) & booking list filters", "issues": ["Tanggal (nb-date) / Waktu (nb-time) and filter-date-from/to still use native browser date/time inputs (mm/dd/yyyy) instead of the shadcn calendar used on the public form - inconsistent in dark mode (not part of round-2 fix list, still open)"]},
+      {"screen": "Dashboard (desktop 1920px)", "issues": ["Login success toast still overlaps the header user block for ~3s (carried over, cosmetic)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_round2_fixes.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_bookings.py",
+    "/app/backend/tests/test_ops.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: replace native date/time inputs in the admin Booking Baru dialog + list filters with shadcn calendar/time components for consistency.",
+    "Optional hardening: email-only lockout enables targeted account-lockout DoS; consider email+XFF composite key or progressive delay."
+  ],
+  "critical_code_review_comments": [
+    "All 6 round-2 fixes verified in code and at runtime: App.js Protected() now computes a role-aware fallback (photographer -> /admin/jadwal), auth.py identifier = email, StatCard truncates/shrinks, ClientPortal uses AlertDialog + driveFolderId() guard with drive-invalid-note, Layout suffixes mobile nav testids, Bookings.jsx nb-package is a Select fed by /api/public/packages.",
+    "ops.py dashboard/finance/analytics still load whole collections into memory and aggregate in Python (to_list(50000)) - move to MongoDB aggregation pipelines (unchanged from round 1).",
+    "backend/.env still defines an unused CORS_ORIGINS key while server.py uses FRONTEND_URL - remove to avoid confusion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_round2_fixes.py (new)",
+    "/app/backend/tests/test_auth.py (stale docstring about IP-keying bug removed; public-ingress lockout test now passes)"
+  ],
+  "success_rate": {"backend": "100% (52/52 pytest)", "frontend": "100% (all 6 fixes + regression flows pass)"},
+  "seed_data_creation": "Temporary TEST_ bookings/payments/notifications created by pytest were purged with /app/backend/tests/cleanup_test_data.py (bookings back to the 8 seeded). INV-2026-0008 was temporarily given 3 photos + an invalid drive_link for FIX4 testing and then restored to its seeded state (photos=[], selection_submitted=false, drive_link='', editing_status=menunggu_seleksi). Note from round 1 still applies: one seeded expense (Rp 300.000) was deleted in round 1, so seeded expenses total Rp 2.500.000.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "owner sayapasuransi@gmail.com / TwinsOwner2026!, admin admin@twins.id / Admin2026!, photographer fotografer@twins.id / Foto2026! (all working; /app/memory/test_credentials.md accurate)",
+  "context_for_next_testing_agent": "Run `cd /app/backend && python -m pytest tests -q` (52 tests, all pass; xdist loadscope - keep per-class make_booking helpers). Always run /app/backend/tests/cleanup_test_data.py afterwards. Portal tokens: INV-2026-0001 5c55f0e6d89a493ea4453500 (8 photos, already submitted, valid drive link), INV-2026-0008 3cb35ceb555b4eb6a307280d (no photos, restored). Portal photo testids: portal-photo-toggle-{id}; bookings search input is filter-search; payment inputs pay-amount/pay-submit; portal submit uses AlertDialog (submit-confirm-dialog/-cancel/-ok). Mobile nav testids are suffixed -mobile and only exist while the drawer is open. Round-2 fixes all verified; only open items are cosmetic (native date/time pickers) and the lockout-DoS hardening suggestion.",
+  "rca_of_the_issue": "N/A - all previously reported defects reproduce as fixed. Photographer routing verified by direct navigation to /admin and /admin/notifikasi (both 302-equivalent client redirects to /admin/jadwal); lockout verified through the public ingress where the 6th attempt returns 429 'Terlalu banyak percobaan' while owner login on a different email still succeeds."
+}

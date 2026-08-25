@@ -1,0 +1,63 @@
+{
+  "summary": "First full round of backend + frontend testing for the Twins Graduation photography booking app. Backend: created pytest suite (48 tests) covering auth/cookies/roles, public booking, booking CRUD & filters, payments (add/delete + auto status), invoice data & PDF, invoice send (mock notification), schedule + conflict detection, client portal (photos/select/submit/invoice), dashboard, finance, expenses, analytics, notifications, users. 47/48 passed. Frontend: Playwright tested owner login, dashboard stat cards & lists, all nav routes, theme toggle, public booking form end-to-end (invoice + portal link), schedule month/week/day + prev/next + conflict markers, bookings search/status filter + new-booking dialog + row navigation, booking detail (payment -> totals/badge update, invoice preview/download PDF/send, photographer/status/editing/delivery selects, drive link + admin notes persistence, add photos), client portal (details, payment progress, invoice PDF, selection counter toggle, final submission + lock, invalid token error), finance presets/chart/recent payments, expenses add/delete + total update, analytics (charts, packages, photographers, locations, repeat clients), notifications run-checks, users list + create photographer + login as new user, role-based access for admin & photographer, mobile viewport, light mode.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/login", "issue": "Brute-force lockout is keyed on request.client.host (ingress pod IP). Through the public URL requests rotate between proxy IPs (10.231.129.137/138), so 8 consecutive wrong passwords never trigger 429 (works only when hitting localhost:8001 directly). Also, keying on proxy IP means one attacker can lock out legitimate users behind the same IP. Use X-Forwarded-For (first hop) and/or key by email only."},
+      {"endpoint": "GET /api/bookings", "issue": "No pagination (to_list(5000)); list will degrade as bookings grow. Low priority for MVP."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "App.js routing / Protected", "issue": "Photographer opening /admin (index route) gets a permanently BLANK page: Protected roles=['owner','admin'] redirects to '/admin', which is the same route -> redirect loop, empty content area (also happens for /admin/notifikasi). Should redirect non-owner/admin roles to /admin/jadwal.", "selector": "route /admin (photographer session)", "priority": "HIGH"},
+      {"component": "Dashboard StatCard (mobile 390px)", "issue": "Large IDR values overflow/are clipped inside the stat card (e.g. 'Rp 16.000.000', 'Rp 31.000.000' run past the card edge). Needs smaller font / truncation / wrap at <=400px.", "selector": "[data-testid=\"stat-revenue\"], [data-testid=\"stat-outstanding\"]", "priority": "MEDIUM"},
+      {"component": "Layout sidebar", "issue": "Desktop aside and mobile drawer are both rendered, so every nav data-testid exists twice in the DOM (Playwright strict-mode violation). Render one, or suffix testids (nav-x-desktop / nav-x-mobile).", "selector": "[data-testid=\"nav-bookings\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Client portal - submit final selection", "issue": "Submit uses native window.confirm(); any environment that auto-dismisses dialogs (and automated tests) silently aborts with no feedback. Functionally works when confirmed, but should use the shadcn AlertDialog for consistency + testability.", "affected_selectors": ["[data-testid=\"submit-selection-button\"]"]},
+      {"flow": "Client portal - Google Drive embed", "issue": "When the drive_link is missing/invalid the iframe renders a raw Google 404/500 error page inside the card (seeded Andini link shows Google 500). Add link validation + graceful fallback message.", "affected_selectors": ["[data-testid=\"portal-drive-gallery\"]", "[data-testid=\"drive-embed\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Booking Baru dialog (/admin/bookings) & booking filters", "issues": ["Uses browser-default native date/time pickers (input type=date/time) instead of the shadcn calendar/time components used on the public form (inconsistent look in dark mode)", "'Paket' is a free-text input in the admin dialog while the public form uses a package Select - typos will break package analytics"]},
+      {"screen": "Booking detail", "issues": ["Payment summary values had no data-testid (added summary-total/dp/paid/remaining during testing)"]},
+      {"screen": "Dashboard (mobile)", "issues": ["Sticky header/hamburger scrolls out of view; toast overlaps the header user block on desktop (1920px) right after login"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_bookings.py",
+    "/app/backend/tests/test_ops.py",
+    "/app/backend/tests/cleanup_test_data.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix photographer blank page at /admin: redirect roles without dashboard access to /admin/jadwal instead of /admin (redirect loop).",
+    "Fix login rate limiting to use X-Forwarded-For / email-based key so lockout works behind the ingress (currently no lockout via public URL).",
+    "Fix mobile stat card overflow for large IDR amounts.",
+    "Replace window.confirm in ClientPortal submit with shadcn AlertDialog; add fallback UI when Drive embed link is invalid.",
+    "Consider shadcn date/time pickers and a package Select in the admin Booking Baru dialog; de-duplicate sidebar nav data-testids."
+  ],
+  "critical_code_review_comments": [
+    "App.js Protected(): `<Navigate to='/admin'>` for a role that is itself blocked from /admin index creates a self-redirect loop; compute a role-aware home path.",
+    "auth.py login(): identifier = f\"{request.client.host}:{email}\" is unreliable behind a proxy and allows collateral lockout of users sharing a proxy IP.",
+    "ops.py finance_summary/analytics/dashboard_stats load whole collections into memory (to_list(50000)) and aggregate in Python; move to MongoDB aggregation pipelines before data grows.",
+    "backend/.env defines CORS_ORIGINS but server.py ignores it and uses FRONTEND_URL - remove the dead key to avoid confusion.",
+    "Backend test files live under /app/backend/tests, which triggers uvicorn --reload on every test edit; harmless in preview but noisy in logs."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/BookingDetail.jsx (added data-testid summary-total/summary-dp/summary-paid/summary-remaining)",
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_bookings.py",
+    "/app/backend/tests/test_ops.py",
+    "/app/backend/tests/cleanup_test_data.py"
+  ],
+  "success_rate": {"backend": "98% (47/48 pytest)", "frontend": "95% (all flows pass; 1 HIGH routing bug for photographer /admin)"},
+  "seed_data_creation": "Created and then removed TEST_-prefixed bookings/payments/expenses/users via /app/backend/tests/cleanup_test_data.py. NOTE: during the Expenses UI delete test one SEEDED expense (Rp 300.000) was deleted because the table is date-desc sorted and the first delete button was clicked; seeded expenses are now 5 instead of 6 (total Rp 2.500.000 instead of Rp 2.800.000). Seeded bookings (8), users (3) and the Andini portal data are intact.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "owner sayapasuransi@gmail.com / TwinsOwner2026!, admin admin@twins.id / Admin2026!, photographer fotografer@twins.id / Foto2026! (all verified working; /app/memory/test_credentials.md is accurate)",
+  "context_for_next_testing_agent": "Run `cd /app/backend && python -m pytest tests -q` (xdist loadscope pins each class to a worker - keep helper make_booking() per class, do NOT share module-scoped booking ids). Known expected failure: test_brute_force_lockout_via_public_ingress (documents the IP-keying bug); the localhost variant passes. Auth uses httpOnly cookies - requests.Session works via /api/auth/login. Portal token of seeded Andini INV-2026-0001 (8 photos, selection already submitted): 5c55f0e6d89a493ea4453500. Frontend selects are shadcn (click trigger then role=option); nb-package/nb-date/nb-time in the Booking Baru dialog are plain/native inputs; ClientPortal submit requires accepting a window.confirm dialog in Playwright. After a test run, execute /app/backend/tests/cleanup_test_data.py to purge TEST_ data.",
+  "rca_of_the_issue": "Photographer blank page: in App.js the /admin index route is wrapped in Protected roles=['owner','admin'] whose fallback is <Navigate to='/admin'>, i.e. the same URL, so React Router keeps rendering the blocked route and shows an empty outlet (backend correctly returns 403 for /api/dashboard/stats). Login lockout: auth.py keys login_attempts by request.client.host, which behind the k8s ingress is a rotating proxy pod IP, so the counter never reaches 5 for a single key when traffic is spread across pods."
+}

@@ -1,0 +1,136 @@
+{
+  "project_name": "Premium Photography Business Management Platform",
+  "theme": "dark_and_light_mode",
+  "language": "Bahasa Indonesia",
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "import_url": "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap",
+      "rules": "Avoid default bold. Use tracking-tight for large headings. Never center default. Apply for H1-H4."
+    },
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "import_url": "https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap",
+      "rules": "Use leading-relaxed. Left align for readability. Use for paragraphs, forms, and tables."
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "import_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap",
+      "rules": "Use for invoice numbers, photo IDs, timestamps, and financial figures."
+    }
+  },
+  "colors": {
+    "strategy": "Swiss & High-Contrast mixed with Organic Earthy. The UI acts as a neutral frame to let the photography pop. Chrome-as-content pattern.",
+    "light_mode": {
+      "background": "#FFFFFF",
+      "foreground": "#0A0A0A",
+      "primary": "#171717",
+      "primary_foreground": "#FFFFFF",
+      "muted": "#F5F5F5",
+      "border": "#E5E5E5",
+      "accent": "#C0A080",
+      "success": "#4A7C59",
+      "warning": "#D4A373",
+      "destructive": "#9D0208"
+    },
+    "dark_mode": {
+      "background": "#0A0A0A",
+      "foreground": "#FAFAFA",
+      "primary": "#FAFAFA",
+      "primary_foreground": "#0A0A0A",
+      "muted": "#171717",
+      "border": "#1F1F1F",
+      "accent": "#C0A080",
+      "success": "#4A7C59",
+      "warning": "#D4A373",
+      "destructive": "#9D0208"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": "Minimal. Use flat borders (1px) over shadows. If using shadow, use soft diffuse (shadow-[0_8px_32px_rgba(0,0,0,0.04)]).",
+    "borders": "Visible grid skeleton. Cardless design or 1px subtle borders (border-border).",
+    "radius": "Subtle roundness, max 4px or 8px (rounded-sm or rounded-md). Not fully rounded.",
+    "textures": "Subtle grain on backgrounds to prevent digital flatness.",
+    "glassmorphism": "Used ONLY for sticky headers. backdrop-blur-xl with border-b. Ensure high opacity (bg-background/80) so text remains readable."
+  },
+  "layouts": {
+    "admin_dashboard": "Sidebar (220px fixed) + Content area. High density grid (gap-6). Widget metrics in col-span-1, Charts in col-span-2 or 3. Cardless style. Strict hierarchy.",
+    "client_portal": "Generous spacing. Masonry gallery for photo selection (columns-1 md:columns-3 lg:columns-4). Clean invoice view.",
+    "public_booking": "Bento Grid strategy (Tetris Mode) for packages. Asymmetric layout.",
+    "calendar": "Full width interactive calendar with status badges indicating conflict (Bentrok) or open."
+  },
+  "components": {
+    "navigation": "Fixed left sidebar for Admin with active state highlighting. Sticky header with crystal glass for Client Portal.",
+    "cards": "Flat, 1px border. No drop shadows. High contrast text.",
+    "buttons": "Sharp (rounded-sm), high contrast hover states. Primary: bg-primary text-primary-foreground hover:bg-primary/90.",
+    "status_badges": "Pill-shaped, tiny uppercase wide-tracking (tracking-[0.2em] text-xs). 'LUNAS' (Paid), 'DP' (Pending), 'BENTROK' (Conflict).",
+    "photo_gallery": "Masonry feed. Images have no borders until selected. Selected photos have a 2px primary border and a checkmark overlay.",
+    "forms": "Use Shadcn Inputs, Checkboxes, Select. Never use native html date pickers, use Shadcn Calendar."
+  },
+  "motion": {
+    "page_transitions": "Framer motion fade in and slight upward translation (y: 10 to 0).",
+    "hover_states": "-translate-y-1 on interactive cards. Image brightness shift on hover.",
+    "lists": "Staggered entrance animations for gallery photos and invoice rows."
+  },
+  "image_urls": {
+    "hero_booking": {
+      "url": "https://images.pexels.com/photos/18269637/pexels-photo-18269637.jpeg",
+      "description": "Minimalist photography studio setup for the booking landing page hero background."
+    },
+    "sample_gallery_1": {
+      "url": "https://images.unsplash.com/photo-1695425173758-37e9c23b962a",
+      "description": "Group of graduates throwing caps, sample photo for client portal gallery."
+    },
+    "sample_gallery_2": {
+      "url": "https://images.pexels.com/photos/32962732/pexels-photo-32962732.jpeg",
+      "description": "Female graduate portrait, sample photo for client portal gallery."
+    },
+    "photographer_avatar": {
+      "url": "https://images.unsplash.com/photo-1526707821106-6428ecac1698",
+      "description": "Man taking photo using Canon DSLR camera, for photographer profile/avatar."
+    },
+    "studio_interior": {
+      "url": "https://images.pexels.com/photos/9396404/pexels-photo-9396404.jpeg",
+      "description": "Bright studio with window for contact/location section."
+    }
+  },
+  "language_map": {
+    "Booking": "Pemesanan",
+    "Dashboard": "Dasbor",
+    "Calendar": "Jadwal Pemotretan",
+    "Finance": "Keuangan",
+    "Invoices": "Faktur",
+    "Expenses": "Pengeluaran",
+    "Photo Selection": "Pemilihan Foto",
+    "Settings": "Pengaturan",
+    "Paid": "Lunas",
+    "Pending": "Menunggu Pembayaran",
+    "Down Payment": "DP",
+    "Conflict": "Bentrok",
+    "Selected": "Terpilih"
+  },
+  "instructions_to_main_agent": [
+    "Overwrite index.css to include Outfit, Manrope, and JetBrains Mono from Google Fonts.",
+    "Update tailwind.config.js with the provided color variables for light and dark modes.",
+    "Implement Shadcn UI for DatePicker, Dialogs, Tables, Select, Tabs, and Charts.",
+    "Use 'lucide-react' for all icons (e.g., Camera, Calendar, FileText, CheckCircle).",
+    "Implement Recharts or Shadcn Charts for Finance Dashboards (Revenue by Month, Expenses).",
+    "Apply 'data-testid' to all interactive elements for testing (e.g., data-testid='booking-submit-button').",
+    "Do NOT use transparent backgrounds for dropdowns or modals. Ensure solid backgrounds with appropriate contrast.",
+    "Use generous padding (p-8 to p-12) for client-facing pages.",
+    "Ensure standard Bahasa Indonesia terminology for all user-facing text based on language_map.",
+    "Create a clean masonry layout for the Photo Selection portal, allowing clients to click to toggle selection status (Selected X/20).",
+    "Implement Dark/Light mode toggle in the sidebar or header."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Avoid generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters ONLY for headers/navs.",
+    "DO NOT apply universal transitions (e.g., transition: all). Add transitions for specific properties.",
+    "DO NOT center align the App container.",
+    "Every interaction needs micro-animations - hover states, transitions.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Never use AI assistant Emoji characters like 🤖🧠💭.",
+    "Always use 'sonner' for toasts."
+  ]
+}
