@@ -36,9 +36,13 @@ Web app all-in-one untuk bisnis fotografi (studio/wisuda): booking form publik, 
 - Notifikasi: run-checks (pengingat sesi, DP, pelunasan, seleksi foto, pengiriman) dengan dedupe harian + log
 - Manajemen pengguna (owner): buat admin/fotografer
 
+## Implemented (2026-06, lanjutan)
+- Menu Pengaturan (owner): edit info bisnis (nama, tagline, telepon, email, alamat), CRUD paket foto (nama, harga, kuota foto, deskripsi), opsi form booking (slot waktu, metode pembayaran) — tersimpan di koleksi settings, langsung dipakai landing page, form booking, invoice PDF, dan portal klien
+- Endpoint: GET /api/public/site (publik), GET/PATCH /api/settings, PUT /api/settings/packages (owner)
+
 ## Status Pengujian (2026-06)
-- Backend: 52/52 pytest lulus (auth, booking, pembayaran, invoice, schedule, portal, finance, analytics, notifikasi, users)
-- Frontend: seluruh flow Playwright lulus (2 ronde); 6 bug ronde 1 diperbaiki & terverifikasi (redirect fotografer, lockout brute-force, overflow kartu mobile, AlertDialog portal, dedupe testid, select paket)
+- Backend: 73/73 pytest lulus (auth, booking, pembayaran, invoice, schedule, portal, finance, analytics, notifikasi, users, settings)
+- Frontend: seluruh flow Playwright lulus (3 ronde); validasi pengaturan: harga/kuota paket wajib angka > 0, nama studio tidak boleh kosong
 - Mock: kirim invoice via WhatsApp/email (log notifikasi), embed Google Drive
 
 ## Backlog

@@ -15,6 +15,7 @@ import Expenses from "@/pages/Expenses";
 import Analytics from "@/pages/Analytics";
 import Notifications from "@/pages/Notifications";
 import UsersPage from "@/pages/Users";
+import SettingsPage from "@/pages/Settings";
 import ClientPortal from "@/pages/ClientPortal";
 
 function Protected({ children, roles }) {
@@ -49,6 +50,7 @@ function App() {
             <Route path="analitik" element={<Protected roles={["owner"]}><Analytics /></Protected>} />
             <Route path="notifikasi" element={<Protected roles={["owner", "admin"]}><Notifications /></Protected>} />
             <Route path="pengguna" element={<Protected roles={["owner"]}><UsersPage /></Protected>} />
+            <Route path="pengaturan" element={<Protected roles={["owner"]}><SettingsPage /></Protected>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

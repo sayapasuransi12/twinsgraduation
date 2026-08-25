@@ -3,9 +3,10 @@ import { NavLink, Outlet, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, CalendarDays, BookOpen, Wallet, Receipt, BarChart3,
-  Bell, Users, LogOut, Sun, Moon, Menu, X, Camera,
+  Bell, Users, LogOut, Sun, Moon, Menu, X, Camera, Settings as SettingsIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 
 const NAV = [
   { key: "dasbor", to: "/admin", end: true, label: "Dasbor", icon: LayoutDashboard, roles: ["owner", "admin"] },
@@ -16,11 +17,18 @@ const NAV = [
   { key: "analitik", to: "/admin/analitik", label: "Analitik", icon: BarChart3, roles: ["owner"] },
   { key: "notifikasi", to: "/admin/notifikasi", label: "Notifikasi", icon: Bell, roles: ["owner", "admin"] },
   { key: "pengguna", to: "/admin/pengguna", label: "Pengguna", icon: Users, roles: ["owner"] },
+  { key: "pengaturan", to: "/admin/pengaturan", label: "Pengaturan", icon: SettingsIcon, roles: ["owner"] },
 ];
 
 const ROLE_LABEL = { owner: "Pemilik", admin: "Admin", photographer: "Fotografer" };
 
 function SidebarContent({ user, onNavigate, suffix = "" }) {
+  const [bizName, setBizName] = useState("Twins Graduation");
+  useEffect(() => {
+    api.get("/public/site").then((r) => {
+      if (r.data?.business?.name) setBizName(r.data.business.name);
+    }).catch(() => {});
+  }, []);
   return (
     <div className="flex h-full flex-col bg-background">
       <Link to="/admin" data-testid="sidebar-logo" onClick={onNavigate}
@@ -29,7 +37,7 @@ function SidebarContent({ user, onNavigate, suffix = "" }) {
           <Camera className="w-4 h-4" />
         </span>
         <span className="font-display font-semibold tracking-tight text-sm leading-tight">
-          TWINS GRADUATION
+          {bizName.toUpperCase()}
         </span>
       </Link>
       <nav className="flex-1 py-4 space-y-0.5 px-3 overflow-y-auto">

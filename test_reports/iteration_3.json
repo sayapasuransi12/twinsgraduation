@@ -1,0 +1,50 @@
+{
+  "summary": "Round-3 testing of the new Settings (Pengaturan) feature. Backend: added /app/backend/tests/test_settings.py (21 tests) covering /api/public/site, /api/public/packages, /api/settings GET/PATCH, /api/settings/packages PUT, role guards (owner-only vs admin/photographer/anon), business-info merge semantics, time-slot/payment-method trimming + default fallback, packages add/edit/delete + id stability + validation, and invoice propagation. Full suite: 72/73 passed (1 real bug: 500 on non-numeric package price). Frontend (Playwright on public URL): owner login -> nav-pengaturan visible -> /admin/pengaturan renders settings-business, settings-packages, settings-form; business info edit persists after reload and shows on landing footer; package add persists (4->5 rows, new card + select option on /), existing package price edit (Bronze 1.500.000 -> 1.888.000) auto-fills booking form total; time slots '07:00, 10:00, 15:30' and payment methods reflected exactly in the public booking selects; pkg-delete removes a row; invalid empty package shows Indonesian error toast and does not corrupt stored packages. Role guards verified in UI: admin & photographer have no nav-pengaturan and /admin/pengaturan redirects (admin -> /admin, photographer -> /admin/jadwal). Auth playbook checks: bcrypt hash starts with $2b$, login sets HttpOnly+Secure access_token/refresh_token cookies, app CORS uses explicit origins with allow_credentials (wildcard header comes from ingress), brute-force lockout covered by existing passing tests. All settings restored to production defaults (business, slots, methods, 4 packages incl. original descriptions) and cleanup_test_data.py executed (12 TEST_ bookings, 4 payments, 23 notifications removed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/settings/packages", "issue": "Non-numeric price (e.g. \"abc\") or quota causes unhandled ValueError -> HTTP 500 ('could not convert string to float'). Should return 400/422 with Indonesian message. RCA: ops.py update_packages does float(p['price'])/int(p.get('quota')) without try/except; PackagesUpdate uses List[dict] so Pydantic does not validate item types."},
+      {"endpoint": "PUT /api/settings/packages", "issue": "`if not p.get('price')` rejects price 0 with a 'wajib punya nama dan harga' error and would also silently reject legitimately free/promo packages; negative prices are accepted (no price > 0 check)."},
+      {"endpoint": "PATCH /api/settings", "issue": "No validation on business fields: empty strings are accepted, so an owner can save a blank Nama Studio which then renders as an empty header on landing page / client portal (ClientPortal.jsx does business.name.toUpperCase()) and a blank invoice PDF kop."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Settings -> Info Bisnis 'Tagline'", "issue": "Tagline is saved and used in the invoice PDF, but never rendered anywhere in the frontend (Landing.jsx destructures business.tagline and never uses it), while the section description claims it appears in the booking page header/footer. Either render it on the landing hero/footer or fix the helper text.", "affected_selectors": ["set-biz-tagline"]},
+      {"flow": "Admin shell branding", "issue": "Sidebar/topbar logo in Layout.jsx is hardcoded 'TWINS GRADUATION' and does not consume the configured Nama Studio, so after renaming the studio the admin shell still shows the old name (landing + portal + invoice do update).", "affected_selectors": ["sidebar-logo"]}
+    ],
+    "design_issues": [
+      {"screen": "Landing booking form", "issues": ["'Tanggal Booking' uses the native browser date input (mm/dd/yyyy US format) instead of a shadcn Calendar/locale-aware Indonesian format - inconsistent with the rest of the Bahasa Indonesia UI (pre-existing)."]},
+      {"screen": "Pengaturan", "issues": ["Sonner toast renders over the top-right user name/Keluar button (transient overlay only, no click blocked during tests).", "Package rows have no per-row save/dirty indicator: all edits are only committed by 'Simpan Semua Paket', so navigating away silently loses edits (no unsaved-changes warning)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_settings.py",
+    "/app/backend/tests/restore_settings_defaults.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Wrap float(price)/int(quota) coercion in PUT /api/settings/packages with try/except -> HTTPException(400, 'Harga dan kuota paket harus berupa angka') (currently 500).",
+    "Validate package price > 0 explicitly (allow 0 only if intended) and reject negatives; use a Pydantic model instead of List[dict].",
+    "Validate non-empty business name/phone/email in PATCH /api/settings to avoid blank header/invoice kop.",
+    "Render the tagline on the landing page (hero/footer) or correct the Settings helper text; also make the admin sidebar logo use the configured studio name."
+  ],
+  "critical_code_review_comments": [
+    "ops.py update_packages: type coercion happens before validation; PackagesUpdate should be List[PackageItem] with typed fields (name: str, price: float = Field(gt=0), quota: int = Field(ge=1), desc: str = '').",
+    "PATCH /api/settings merges business dict but does not strip/validate values; a whitespace-only name passes through to public site + PDF.",
+    "Landing.jsx keeps local TIME_SLOTS/PAYMENT_METHODS constants as fallback duplicating backend DEFAULT_* lists - risk of drift; single source should be /api/public/site.",
+    "Settings.jsx new package rows are created with id: '' and price: '' (string) which relies on backend coercion - send numbers from the client."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_settings.py",
+    "/app/backend/tests/restore_settings_defaults.py"
+  ],
+  "success_rate": {"backend": "98.6% (72/73 pytest)", "frontend": "100% of Settings flows verified (2 non-blocking integration/copy issues)"},
+  "seed_data_creation": "Temporary TEST_ package/business/slot/method values only; all reverted to production defaults. cleanup_test_data.py run afterwards.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "owner sayapasuransi@gmail.com / TwinsOwner2026!, admin admin@twins.id / Admin2026!, photographer fotografer@twins.id / Foto2026! (from /app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "Settings feature is functionally complete and verified end-to-end (owner-only guard, persistence, landing/booking-form/invoice propagation). New test file /app/backend/tests/test_settings.py; note pytest.ini uses xdist --dist loadscope (per-class workers) so state-restoring fixtures must be class-scoped and restore ONLY the fields that class mutates, otherwise cross-worker races produce false failures. Only open backend failure is test_package_invalid_price_type (500 instead of 400). Use /app/backend/tests/restore_settings_defaults.py to reset packages/site after settings tests.",
+  "rca_of_the_issue": "500 on PUT /api/settings/packages: ops.py:326 float(p['price']) raises ValueError for non-numeric input because PackagesUpdate declares packages as List[dict], bypassing Pydantic per-field validation; FastAPI then returns 500. Reproduce: owner PUT /api/settings/packages {\"packages\":[{\"name\":\"X\",\"price\":\"abc\"}]}. Mitigation: typed Pydantic item model or try/except -> 400."
+}

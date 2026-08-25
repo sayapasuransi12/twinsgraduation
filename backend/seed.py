@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone, timedelta, date
 from database import db
 from auth import hash_password
+from bookings import DEFAULT_BUSINESS, DEFAULT_TIME_SLOTS, DEFAULT_PAYMENT_METHODS
 
 GALLERY = [
     "https://images.unsplash.com/photo-1498079022511-d15614cb1c02?w=800&q=80",
@@ -37,6 +38,12 @@ def now_iso():
 async def seed_all():
     if not await db.settings.find_one({"key": "packages"}):
         await db.settings.insert_one({"key": "packages", "packages": PACKAGES})
+    if not await db.settings.find_one({"key": "site"}):
+        await db.settings.insert_one({"key": "site", "value": {
+            "business": DEFAULT_BUSINESS,
+            "time_slots": DEFAULT_TIME_SLOTS,
+            "payment_methods": DEFAULT_PAYMENT_METHODS,
+        }})
 
     if not await db.users.find_one({"email": "admin@twins.id"}):
         await db.users.insert_one({

@@ -21,13 +21,19 @@ const EMPTY = {
 
 export default function Landing() {
   const [packages, setPackages] = useState([]);
+  const [site, setSite] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
   useEffect(() => {
     api.get("/public/packages").then((r) => setPackages(r.data)).catch(() => {});
+    api.get("/public/site").then((r) => setSite(r.data)).catch(() => {});
   }, []);
+
+  const business = site?.business || { name: "Twins Graduation", phone: "", email: "", address: "", tagline: "" };
+  const timeSlots = site?.time_slots?.length ? site.time_slots : TIME_SLOTS;
+  const paymentMethods = site?.payment_methods?.length ? site.payment_methods : PAYMENT_METHODS;
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -65,7 +71,7 @@ export default function Landing() {
             <span className="w-8 h-8 bg-gold text-black grid place-items-center rounded-sm">
               <Camera className="w-4 h-4" />
             </span>
-            <span className="font-display font-semibold tracking-tight text-sm">TWINS GRADUATION</span>
+            <span className="font-display font-semibold tracking-tight text-sm">{business.name.toUpperCase()}</span>
           </div>
           <Link to="/login" data-testid="landing-login-link"
             className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors">
@@ -80,7 +86,7 @@ export default function Landing() {
           <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" />
         </div>
         <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-20">
-          <p className="text-xs uppercase tracking-[0.3em] text-gold animate-fade-up">Studio Fotografi Wisuda & Event</p>
+          <p className="text-xs uppercase tracking-[0.3em] text-gold animate-fade-up">{business.tagline}</p>
           <h1 className="mt-4 text-4xl sm:text-5xl lg:text-6xl font-display font-semibold tracking-tight max-w-2xl animate-fade-up">
             Abadikan momen kelulusan Anda, tanpa ribet.
           </h1>
@@ -184,7 +190,7 @@ export default function Landing() {
                       <SelectValue placeholder="Pilih waktu" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TIME_SLOTS.map((t) => <SelectItem key={t} value={t}>{t} WIB</SelectItem>)}
+                      {timeSlots.map((t) => <SelectItem key={t} value={t}>{t} WIB</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -210,7 +216,7 @@ export default function Landing() {
                       <SelectValue placeholder="Pilih metode" />
                     </SelectTrigger>
                     <SelectContent>
-                      {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                      {paymentMethods.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -240,8 +246,8 @@ export default function Landing() {
 
       <footer className="border-t border-border mt-8">
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row gap-4 justify-between text-sm text-muted-foreground">
-          <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gold" /> Jl. Kenanga No. 12, Yogyakarta</span>
-          <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-gold" /> Setiap hari, 07.00 – 18.00 WIB</span>
+          <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-gold" /> {business.address}</span>
+          <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-gold" /> {business.phone} • {business.email}</span>
         </div>
       </footer>
     </div>

@@ -11,13 +11,26 @@ from invoice_pdf import build_invoice_pdf
 
 router = APIRouter()
 
-BUSINESS = {
+DEFAULT_BUSINESS = {
     "name": "Twins Graduation",
     "tagline": "Studio Fotografi Wisuda & Event",
     "phone": "+62 812-3456-7890",
     "email": "halo@twinsgraduation.id",
     "address": "Jl. Kenanga No. 12, Yogyakarta",
 }
+
+DEFAULT_TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"]
+DEFAULT_PAYMENT_METHODS = ["Transfer Bank", "Cash", "QRIS", "E-Wallet"]
+
+
+async def get_site() -> dict:
+    doc = await db.settings.find_one({"key": "site"}, {"_id": 0})
+    value = (doc or {}).get("value", {})
+    return {
+        "business": {**DEFAULT_BUSINESS, **value.get("business", {})},
+        "time_slots": value.get("time_slots") or DEFAULT_TIME_SLOTS,
+        "payment_methods": value.get("payment_methods") or DEFAULT_PAYMENT_METHODS,
+    }
 
 BOOKING_STATUSES = ["pending", "confirmed", "dp_paid", "fully_paid", "completed", "cancelled", "rescheduled"]
 
@@ -194,7 +207,7 @@ async def get_booking(booking_id: str, user: dict = Depends(get_current_user)):
     b["payments"] = await db.payments.find({"booking_id": booking_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
     same_day = await db.bookings.find({"booking_date": b["booking_date"]}, {"_id": 0}).to_list(500)
     b["conflicts"] = find_conflicts(same_day, b)
-    b["business"] = BUSINESS
+    b["business"] = (await get_site())["business"]
     return b
 
 
@@ -320,7 +333,7 @@ async def invoice_data(booking_id: str, user: dict = Depends(get_current_user)):
     b = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking tidak ditemukan")
-    return {"booking": b, "business": BUSINESS}
+    return {"booking": b, "business": (await get_site())["business"]}
 
 
 @router.get("/bookings/{booking_id}/invoice.pdf")
@@ -328,7 +341,7 @@ async def invoice_pdf(booking_id: str, user: dict = Depends(get_current_user)):
     b = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking tidak ditemukan")
-    pdf = build_invoice_pdf(b, BUSINESS)
+    pdf = build_invoice_pdf(b, (await get_site())["business"])
     return StreamingResponse(BytesIO(pdf), media_type="application/pdf",
                              headers={"Content-Disposition": f'inline; filename="{b["invoice_number"]}.pdf"'})
 
@@ -374,7 +387,7 @@ async def portal_view(token: str):
     b = await portal_booking(token)
     payments = await db.payments.find({"booking_id": b["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
     selected = sum(1 for p in b.get("photos", []) if p.get("selected"))
-    return {"booking": b, "business": BUSINESS, "payments": payments, "selected_count": selected}
+    return {"booking": b, "business": (await get_site())["business"], "payments": payments, "selected_count": selected}
 
 
 class PhotoSelect(BaseModel):
@@ -416,6 +429,6 @@ async def portal_submit_selection(token: str):
 @router.get("/portal/{token}/invoice.pdf")
 async def portal_invoice_pdf(token: str):
     b = await portal_booking(token)
-    pdf = build_invoice_pdf(b, BUSINESS)
+    pdf = build_invoice_pdf(b, (await get_site())["business"])
     return StreamingResponse(BytesIO(pdf), media_type="application/pdf",
                              headers={"Content-Disposition": f'inline; filename="{b["invoice_number"]}.pdf"'})

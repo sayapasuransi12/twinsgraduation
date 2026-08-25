@@ -1,10 +1,10 @@
 from datetime import datetime, timezone, timedelta, date
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from database import db
 from auth import require_roles, hash_password
-from bookings import queue_notification, new_id, now_iso, today_str
+from bookings import queue_notification, new_id, now_iso, today_str, get_site
 
 router = APIRouter()
 
@@ -274,3 +274,74 @@ async def run_checks(user: dict = Depends(require_roles("owner", "admin"))):
                 await queue_notification(type_, title, msg, b["id"], key)
                 created += 1
     return {"created": created}
+
+
+@router.get("/public/site")
+async def public_site():
+    return await get_site()
+
+
+@router.get("/settings")
+async def get_settings(user: dict = Depends(require_roles("owner"))):
+    site = await get_site()
+    pkgs = await db.settings.find_one({"key": "packages"}, {"_id": 0})
+    return {**site, "packages": pkgs["packages"] if pkgs else []}
+
+
+class SiteUpdate(BaseModel):
+    business: Optional[dict] = None
+    time_slots: Optional[List[str]] = None
+    payment_methods: Optional[List[str]] = None
+
+
+@router.patch("/settings")
+async def update_settings(body: SiteUpdate, user: dict = Depends(require_roles("owner"))):
+    existing = await db.settings.find_one({"key": "site"}) or {}
+    value = existing.get("value", {})
+    if body.business:
+        allowed = {"name", "tagline", "phone", "email", "address"}
+        cleaned = {k: str(v).strip() for k, v in body.business.items() if k in allowed and v is not None}
+        if "name" in cleaned and not cleaned["name"]:
+            raise HTTPException(400, "Nama studio tidak boleh kosong")
+        value["business"] = {**value.get("business", {}), **cleaned}
+    if body.time_slots is not None:
+        value["time_slots"] = [s.strip() for s in body.time_slots if s.strip()]
+    if body.payment_methods is not None:
+        value["payment_methods"] = [s.strip() for s in body.payment_methods if s.strip()]
+    await db.settings.update_one({"key": "site"}, {"$set": {"key": "site", "value": value}}, upsert=True)
+    return await get_site()
+
+
+class PackageItem(BaseModel):
+    id: Optional[str] = ""
+    name: str
+    price: Optional[float] = None
+    quota: int = 20
+    desc: str = ""
+
+
+class PackagesUpdate(BaseModel):
+    packages: List[PackageItem]
+
+
+@router.put("/settings/packages")
+async def update_packages(body: PackagesUpdate, user: dict = Depends(require_roles("owner"))):
+    cleaned = []
+    for p in body.packages:
+        if not p.name.strip():
+            raise HTTPException(400, "Setiap paket wajib punya nama")
+        if p.price is None:
+            raise HTTPException(400, "Setiap paket wajib punya harga")
+        if p.price <= 0:
+            raise HTTPException(400, f"Harga paket '{p.name}' harus lebih dari 0")
+        if p.quota < 1:
+            raise HTTPException(400, f"Kuota foto paket '{p.name}' minimal 1")
+        cleaned.append({
+            "id": p.id or new_id(),
+            "name": p.name.strip(),
+            "price": p.price,
+            "quota": p.quota,
+            "desc": p.desc,
+        })
+    await db.settings.update_one({"key": "packages"}, {"$set": {"key": "packages", "packages": cleaned}}, upsert=True)
+    return cleaned
